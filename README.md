@@ -34,3 +34,6 @@ if __name__ == "__main__":
 
 Output image:
 ![Topograph](topograph.png)
+
+
+To download sample EDF dataset please refer [Person identification from EEG using various machine learning techniques with inter-hemispheric amplitude ratio](https://doi.org/10.1371/journal.pone.0238872)
