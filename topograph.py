@@ -2,6 +2,7 @@ import numpy as np
 import scipy.interpolate
 from scipy import signal
 from matplotlib import patches
+import matplotlib.pyplot as plt
 
 def get_psds(data, fs=128, f_range=[0.5, 30]):
     '''
