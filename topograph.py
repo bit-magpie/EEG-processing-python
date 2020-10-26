@@ -23,13 +23,14 @@ def get_psds(data, fs=128, f_range=[0.5, 30]):
     
     return powers, psds
 
-def plot_topomap(data, ax, fig):
+def plot_topomap(data, ax, fig, draw_cbar=True):
     '''
     Plot topographic plot of EEG data. This specialy design for Emotiv 14 electrode data. 
     This can be change for any other arrangement by changing ch_pos (channel position array)
     Input: data- 1D array 14 data values
            ax- Matplotlib subplot object to be plotted every thing
            fig- Matplot lib figure object to draw colormap
+           draw_cbar- Visualize color bar in the plot
     '''
     N = 300            
     xy_center = [2,2]  
@@ -56,13 +57,12 @@ def plot_topomap(data, ax, fig):
             if (r - dr/2) > radius:
                 zi[j,i] = "nan"
     
-    #fig, ax = plt.subplots()
-
     dist = ax.contourf(xi, yi, zi, 60, cmap = plt.get_cmap('coolwarm'), zorder = 1)
     ax.contour(xi, yi, zi, 15, linewidths = 0.5,colors = "grey", zorder = 2)
-
-    cbar = fig.colorbar(dist, ax=ax, format='%.1e')
-    cbar.ax.tick_params(labelsize=8)
+    
+    if draw_cbar:
+        cbar = fig.colorbar(dist, ax=ax, format='%.1e')
+        cbar.ax.tick_params(labelsize=8)
 
     ax.scatter(x, y, marker = 'o', c = 'b', s = 15, zorder = 3)
     circle = patches.Circle(xy = xy_center, radius = radius, edgecolor = "k", facecolor = "none", zorder=4)
