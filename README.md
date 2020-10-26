@@ -37,6 +37,7 @@ fig.savefig("topograph.png", bbox_inches='tight')
 ```
 
 Output image:
+
 ![Topograph](topograph.png)
 
 #### Animation
@@ -69,6 +70,7 @@ for chunk in chunk_data:
 ```
 
 Output:
+
 ![Topograph](topograph_animation.gif)
 
 To download sample EDF dataset please refer [Person identification from EEG using various machine learning techniques with inter-hemispheric amplitude ratio](https://doi.org/10.1371/journal.pone.0238872)
