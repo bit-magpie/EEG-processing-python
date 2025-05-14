@@ -88,7 +88,7 @@ fig.savefig("topograph.png", bbox_inches='tight')
 
 Output image:
 
-![Topograph](topograph.png)
+![Topograph](topograph_1.png)
 
 #### Animation Visualization
 
