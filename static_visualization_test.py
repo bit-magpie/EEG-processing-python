@@ -9,6 +9,6 @@ ch_data = raw_data[2:16,:]
 pwrs, _ = get_psds(ch_data)
 
 fig, ax = plt.subplots(figsize=(10,8))
-plot_topomap(pwrs, ax, fig)
+ax, _ = plot_topomap(pwrs, ax, fig)
 plt.show()
 fig.savefig("topograph2.png", bbox_inches='tight')

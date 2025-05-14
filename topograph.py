@@ -155,6 +155,8 @@ def plot_topomap(data, ax, fig, channel_labels, draw_cbar=True, title=None):
     dist = ax.contourf(xi, yi, zi, 60, cmap = plt.get_cmap('coolwarm'), zorder = 1)
     ax.contour(xi, yi, zi, 15, linewidths = 0.5,colors = "grey", zorder = 2)
     
+    # Create colorbar if requested
+    cbar = None
     if draw_cbar:
         cbar = fig.colorbar(dist, ax=ax, format='%.1e')
         cbar.ax.tick_params(labelsize=8)
@@ -194,7 +196,7 @@ def plot_topomap(data, ax, fig, channel_labels, draw_cbar=True, title=None):
     ax.add_patch(right_ear)
     
     # Nose at the top (triangle shape)
-    nose_tip_y = 1.05
+    nose_tip_y = 0.99
     nose_triangle = patches.Polygon(
         [[0, nose_tip_y + 0.15], [-0.1, nose_tip_y], [0.1, nose_tip_y]],
         closed=True, 
@@ -213,7 +215,8 @@ def plot_topomap(data, ax, fig, channel_labels, draw_cbar=True, title=None):
     if title:
         ax.set_title(title)
 
-    return ax
+    # Return the axis and the colorbar object
+    return ax, cbar
 
 
 if __name__ == "__main__":
@@ -317,7 +320,7 @@ if __name__ == "__main__":
     title = f'EEG Topography - {os.path.basename(edf_file)}'
     
     # Generate the plot
-    plot_topomap(pwrs, ax, fig, channel_labels=eeg_ch_names, draw_cbar=True, title=title)
+    ax, _ = plot_topomap(pwrs, ax, fig, channel_labels=eeg_ch_names, draw_cbar=True, title=title)
     
     plt.tight_layout()
     
