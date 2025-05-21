@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EEG Electrode Position Labeler</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .controls {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        .plot-container {
+            display: flex;
+            gap: 20px;
+        }
+        .plot-area {
+            flex: 1;
+            position: relative;
+            background-color: #ffffff;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+        }
+        .labels-panel {
+            width: 300px;
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-y: auto;
+            max-height: 600px;
+        }
+        .label-item {
+            padding: 5px 10px;
+            margin: 2px 0;
+            background-color: #e9ecef;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .label-item:hover {
+            background-color: #dee2e6;
+        }
+        .label-item.used {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .electrode {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #007bff;
+            cursor: pointer;
+            transition: all 0.2s;
+            transform: translate(-50%, -50%);
+        }
+        .electrode:hover {
+            background-color: #0056b3;
+            transform: translate(-50%, -50%) scale(1.5);
+        }
+        .electrode.labeled {
+            background-color: #28a745;
+        }
+        .electrode.selected {
+            background-color: #dc3545;
+            transform: translate(-50%, -50%) scale(1.8);
+        }
+        .electrode-label {
+            position: absolute;
+            font-size: 10px;
+            font-weight: bold;
+            color: #333;
+            transform: translate(-50%, -150%);
+            background-color: rgba(255,255,255,0.8);
+            padding: 1px 3px;
+            border-radius: 2px;
+            white-space: nowrap;
+        }
+        .progress {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #dee2e6;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #28a745;
+            transition: width 0.3s;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+        }
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+        .search-box {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            box-sizing: border-box;
+        }
+        .instructions {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        .selected-info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>EEG Electrode Position Labeler</h1>
+        
+        <div class="instructions">
+            <strong>Instructions:</strong> Click on an electrode (blue dot) to select it, then click on a label from the list to assign it. 
+            Labeled electrodes turn green. Use the search box to quickly find labels.
+        </div>
+
+        <div class="controls">
+            <div class="progress">
+                <div>Progress: <span id="progress-text">0/326</span></div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                </div>
+            </div>
+            <button class="btn-secondary" onclick="clearSelection()">Clear Selection</button>
+            <button class="btn-danger" onclick="clearAll()">Clear All Labels</button>
+            <button class="btn-success" onclick="downloadCSV()" id="download-btn">Download CSV</button>
+        </div>
+
+        <div class="plot-container">
+            <div class="plot-area" id="plot-area">
+                <!-- Electrodes will be positioned here -->
+            </div>
+            
+            <div class="labels-panel">
+                <div class="selected-info" id="selected-info" style="display: none;">
+                    <strong>Selected Electrode:</strong> <span id="selected-coords"></span>
+                </div>
+                <input type="text" class="search-box" id="search-box" placeholder="Search labels..." onkeyup="filterLabels()">
+                <div id="labels-list">
+                    <!-- Labels will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // EEG electrode labels
+        const labels = ["Nose","Nz","NFpz","Fpz","AFpz","AFz","AFFz","Fz","FFCz","FCz","FCCz","Cz","CCPz","CPz","CPPz","Pz","PPOz","POz","POOz","Oz","OIz","Iz","N1h","N1","AFp9","AF9","AFF9","F9","FFT9","FT9","FTT9","T9","TTP9","TP9","TPP9","P9","PPO9","PO9","POO9","I1","I1h","NFp1h","NFp1","AFp9h","AF9h","AFF9h","F9h","FFT9h","FT9h","FTT9h","T9h","TTP9h","TP9h","TPP9h","P9h","PPO9h","PO9h","POO9h","OI1","OI1h","Fp1h","Fp1","AFp7","AFF7","F7","FFT7","FT7","FTT7","T7","TTP7","TP7","TPP7","P7","PPO7","PO7","POO7","O1","O1h","N2h","N2","AFp10","AF10","AFF10","F10","FFT10","FT10","FTT10","T10","TTP10","TP10","TPP10","P10","PPO10","PO10","POO10","I2","I2h","NFp2h","NFp2","AFp10h","AF10h","AFF10h","F10h","FFT10h","FT10h","FTT10h","T10h","TTP10h","TP10h","TPP10h","P10h","PPO10h","PO10h","POO10h","OI2","OI2h","Fp2h","Fp2","AFp8","AFF8","F8","FFT8","FT8","FTT8","T8","TTP8","TP8","TPP8","P8","PPO8","PO8","POO8","O2","O2h","T7h","C5","C5h","C3","C3h","C1","C1h","T8h","C6","C6h","C4","C4h","C2","C2h","F3","F4","P3","P4","F5","F6","P5","P6","F1","F2","P1","P2","F7h","F8h","P7h","P8h","F5h","F6h","P5h","P6h","F3h","F4h","P3h","P4h","F1h","F2h","P1h","P2h","FC3","FC4","CP3","CP4","FC5","FC6","CP5","CP6","FC1","FC2","CP1","CP2","FT7h","FT8h","TP7h","TP8h","FC5h","FC6h","CP5h","CP6h","FC3h","FC4h","CP3h","CP4h","FC1h","FC2h","CP1h","CP2h","AF3","AF4","PO3","PO4","AF5","AF6","PO5","PO6","AF1","AF2","PO1","PO2","AF7h","AF8h","AF5h","AF6h","PO5h","PO6h","AF3h","AF4h","PO3h","PO4h","AF1h","AF2h","PO1h","PO2h","AFp3","AFp4","POO3","POO4","AFp5","AFp6","POO5","POO6","AFp1","AFp2","POO1","POO2","AFF3","AFF4","PPO3","PPO4","AFF5","AFF6","PPO5","PPO6","AFF1","AFF2","PPO1","PPO2","AFF7h","AFF8h","PPO7h","PPO8h","AFF5h","AFF6h","PPO5h","PPO6h","AFF3h","AFF4h","PPO3h","PPO4h","AFF1h","AFF2h","PPO1h","PPO2h","FFC3","FFC4","CPP3","CPP4","FFC5","FFC6","CPP5","CPP6","FFC1","FFC2","CPP1","CPP2","FFT7h","FFT8h","TPP7h","TPP8h","FFC5h","FFC6h","CPP5h","CPP6h","FFC3h","FFC4h","CPP3h","CPP4h","FFC1h","FFC2h","CPP1h","CPP2h","FCC3","FCC4","CCP3","CCP4","FCC5","FCC6","CCP5","CCP6","FCC1","FCC2","CCP1","CCP2","FTT7h","FTT8h","TTP7h","TTP8h","FCC5h","FCC6h","CCP5h","CCP6h","FCC3h","FCC4h","CCP3h","CCP4h","FCC1h","FCC2h","CCP1h","CCP2h"];
+
+        let coordinates = [];
+        let selectedElectrode = null;
+        let electrodeLabels = {};
+        let usedLabels = new Set();
+
+        // CSV data embedded directly
+        const csvData = `x,y
+0.4975,0.0448
+0.4975,0.0862
+0.4328,0.0912
+0.5622,0.0912
+0.3706,0.1061
+0.6244,0.1061
+0.4975,0.1269
+0.3109,0.1310
+0.6841,0.1310
+0.4395,0.1318
+0.5556,0.1318
+0.3831,0.1451
+0.6119,0.1451
+0.2554,0.1650
+0.7396,0.1650
+0.3292,0.1675
+0.6658,0.1675
+0.4975,0.1683
+0.4461,0.1725
+0.5489,0.1725
+0.3955,0.1841
+0.5995,0.1841
+0.2794,0.1982
+0.7156,0.1982
+0.3483,0.2040
+0.6468,0.2040
+0.2065,0.2065
+0.3765,0.2065
+0.6186,0.2065
+0.7886,0.2065
+0.4104,0.2081
+0.5846,0.2081
+0.4511,0.2090
+0.5439,0.2090
+0.4975,0.2098
+0.2355,0.2355
+0.3234,0.2355
+0.6716,0.2355
+0.7595,0.2355
+0.3433,0.2396
+0.6517,0.2396
+0.3657,0.2430
+0.6294,0.2430
+0.3889,0.2454
+0.6061,0.2454
+0.4146,0.2479
+0.5804,0.2479
+0.4411,0.2496
+0.5539,0.2496
+0.4693,0.2504
+0.4975,0.2504
+0.5257,0.2504
+0.1650,0.2554
+0.8300,0.2554
+0.2645,0.2645
+0.7305,0.2645
+0.2894,0.2720
+0.7056,0.2720
+0.3151,0.2778
+0.6799,0.2778
+0.1982,0.2794
+0.7968,0.2794
+0.3433,0.2819
+0.6517,0.2819
+0.3723,0.2861
+0.6227,0.2861
+0.4022,0.2886
+0.5929,0.2886
+0.4337,0.2902
+0.5614,0.2902
+0.4652,0.2910
+0.5299,0.2910
+0.4975,0.2919
+0.2313,0.3043
+0.7637,0.3043
+0.1310,0.3109
+0.8640,0.3109
+0.2612,0.3126
+0.7338,0.3126
+0.2927,0.3184
+0.7023,0.3184
+0.3250,0.3234
+0.6700,0.3234
+0.3582,0.3267
+0.6368,0.3267
+0.1675,0.3292
+0.8275,0.3292
+0.3922,0.3300
+0.6028,0.3300
+0.4270,0.3317
+0.5680,0.3317
+0.4627,0.3325
+0.4975,0.3325
+0.5323,0.3325
+0.2040,0.3483
+0.7910,0.3483
+0.2388,0.3557
+0.7562,0.3557
+0.2745,0.3615
+0.7206,0.3615
+0.3109,0.3657
+0.6841,0.3657
+0.3474,0.3690
+0.6476,0.3690
+0.1061,0.3706
+0.8889,0.3706
+0.3847,0.3715
+0.6103,0.3715
+0.4221,0.3731
+0.5730,0.3731
+0.4602,0.3740
+0.4975,0.3740
+0.5348,0.3740
+0.1451,0.3831
+0.8499,0.3831
+0.1841,0.3955
+0.8109,0.3955
+0.2231,0.4022
+0.7720,0.4022
+0.2612,0.4063
+0.7338,0.4063
+0.3002,0.4096
+0.6949,0.4096
+0.3391,0.4113
+0.6559,0.4113
+0.3789,0.4129
+0.6161,0.4129
+0.4187,0.4146
+0.4577,0.4146
+0.5373,0.4146
+0.5763,0.4146
+0.4975,0.4154
+0.0912,0.4328
+0.9038,0.4328
+0.1318,0.4395
+0.8632,0.4395
+0.1725,0.4461
+0.8226,0.4461
+0.2131,0.4494
+0.7819,0.4494
+0.2529,0.4519
+0.7421,0.4519
+0.2935,0.4536
+0.7015,0.4536
+0.3350,0.4544
+0.6600,0.4544
+0.3756,0.4552
+0.6194,0.4552
+0.4163,0.4561
+0.4569,0.4561
+0.4975,0.4561
+0.5381,0.4561
+0.5788,0.4561
+0.0862,0.4975
+0.1269,0.4975
+0.1683,0.4975
+0.2098,0.4975
+0.2504,0.4975
+0.2919,0.4975
+0.3325,0.4975
+0.3740,0.4975
+0.4154,0.4975
+0.4561,0.4975
+0.4975,0.4975
+0.5390,0.4975
+0.5796,0.4975
+0.6211,0.4975
+0.6625,0.4975
+0.7032,0.4975
+0.7446,0.4975
+0.7852,0.4975
+0.8267,0.4975
+0.8682,0.4975
+0.9088,0.4975
+0.4163,0.5390
+0.4569,0.5390
+0.4975,0.5390
+0.5381,0.5390
+0.5788,0.5390
+0.3756,0.5398
+0.6194,0.5398
+0.3350,0.5406
+0.6600,0.5406
+0.2935,0.5415
+0.7015,0.5415
+0.2529,0.5431
+0.7421,0.5431
+0.2131,0.5456
+0.7819,0.5456
+0.1725,0.5489
+0.8226,0.5489
+0.1318,0.5556
+0.8632,0.5556
+0.0912,0.5622
+0.9038,0.5622
+0.4975,0.5796
+0.4187,0.5804
+0.4577,0.5804
+0.5373,0.5804
+0.5763,0.5804
+0.3789,0.5821
+0.6161,0.5821
+0.3391,0.5837
+0.6559,0.5837
+0.3002,0.5854
+0.6949,0.5854
+0.2612,0.5887
+0.7338,0.5887
+0.2231,0.5929
+0.7720,0.5929
+0.1841,0.5995
+0.8109,0.5995
+0.1451,0.6119
+0.8499,0.6119
+0.4602,0.6211
+0.4975,0.6211
+0.5348,0.6211
+0.4221,0.6219
+0.5730,0.6219
+0.3847,0.6235
+0.6103,0.6235
+0.1061,0.6244
+0.8889,0.6244
+0.3474,0.6260
+0.6476,0.6260
+0.3109,0.6294
+0.6841,0.6294
+0.2745,0.6335
+0.7206,0.6335
+0.2388,0.6393
+0.7562,0.6393
+0.2040,0.6468
+0.7910,0.6468
+0.4627,0.6625
+0.4975,0.6625
+0.5323,0.6625
+0.4270,0.6633
+0.5680,0.6633
+0.3922,0.6650
+0.6028,0.6650
+0.1675,0.6658
+0.8275,0.6658
+0.3582,0.6683
+0.6368,0.6683
+0.3250,0.6716
+0.6700,0.6716
+0.2927,0.6766
+0.7023,0.6766
+0.2612,0.6824
+0.7338,0.6824
+0.1310,0.6841
+0.8640,0.6841
+0.2313,0.6907
+0.7637,0.6907
+0.4975,0.7032
+0.4652,0.7040
+0.5299,0.7040
+0.4337,0.7048
+0.5614,0.7048
+0.4022,0.7065
+0.5929,0.7065
+0.3723,0.7090
+0.6227,0.7090
+0.3433,0.7131
+0.6517,0.7131
+0.1982,0.7156
+0.7968,0.7156
+0.3151,0.7172
+0.6799,0.7172
+0.2894,0.7231
+0.7056,0.7231
+0.2645,0.7305
+0.7305,0.7305
+0.1650,0.7396
+0.8300,0.7396
+0.4693,0.7446
+0.4975,0.7446
+0.5257,0.7446
+0.4411,0.7454
+0.5539,0.7454
+0.4146,0.7471
+0.5804,0.7471
+0.3889,0.7496
+0.6061,0.7496
+0.3657,0.7521
+0.6294,0.7521
+0.3433,0.7554
+0.6517,0.7554
+0.2355,0.7595
+0.7595,0.7595
+0.3043,0.7637
+0.6907,0.7637
+0.4975,0.7852
+0.4511,0.7861
+0.5439,0.7861
+0.4104,0.7869
+0.5846,0.7869
+0.2065,0.7886
+0.3765,0.7886
+0.6186,0.7886
+0.7886,0.7886
+0.3483,0.7910
+0.6468,0.7910
+0.2794,0.7968
+0.7156,0.7968
+0.3955,0.8109
+0.5995,0.8109
+0.4461,0.8226
+0.5489,0.8226
+0.4975,0.8267
+0.3292,0.8275
+0.6658,0.8275
+0.2554,0.8300
+0.7396,0.8300
+0.3831,0.8499
+0.6119,0.8499
+0.4395,0.8632
+0.5556,0.8632
+0.3109,0.8640
+0.6841,0.8640
+0.4975,0.8682
+0.3706,0.8889
+0.6244,0.8889
+0.4328,0.9038
+0.5622,0.9038
+0.4975,0.9088`;
+
+        // Load CSV data
+        function loadData() {
+            try {
+                const lines = csvData.trim().split('\n');
+                
+                for (let i = 1; i < lines.length; i++) {
+                    const [x, y] = lines[i].split(',').map(parseFloat);
+                    coordinates.push({ x, y, index: i - 1 });
+                }
+                
+                createPlot();
+                createLabelsList();
+                updateProgress();
+            } catch (error) {
+                console.error('Error loading CSV:', error);
+                alert('Error loading electrode positions data.');
+            }
+        }
+
+        function createPlot() {
+            const plotArea = document.getElementById('plot-area');
+            plotArea.innerHTML = '';
+            
+            // Set plot area dimensions
+            const plotWidth = 600;
+            const plotHeight = 600;
+            plotArea.style.width = plotWidth + 'px';
+            plotArea.style.height = plotHeight + 'px';
+
+            coordinates.forEach((coord, index) => {
+                const electrode = document.createElement('div');
+                electrode.className = 'electrode';
+                electrode.id = `electrode-${index}`;
+                
+                // Convert normalized coordinates to pixel coordinates
+                const x = coord.x * plotWidth;
+                const y = coord.y * plotHeight;
+                
+                electrode.style.left = x + 'px';
+                electrode.style.top = y + 'px';
+                
+                electrode.addEventListener('click', () => selectElectrode(index));
+                
+                plotArea.appendChild(electrode);
+            });
+        }
+
+        function createLabelsList() {
+            const labelsList = document.getElementById('labels-list');
+            labelsList.innerHTML = '';
+            
+            labels.forEach(label => {
+                const labelItem = document.createElement('div');
+                labelItem.className = 'label-item';
+                labelItem.textContent = label;
+                labelItem.id = `label-${label}`;
+                
+                labelItem.addEventListener('click', () => assignLabel(label));
+                
+                labelsList.appendChild(labelItem);
+            });
+        }
+
+        function selectElectrode(index) {
+            // Clear previous selection
+            if (selectedElectrode !== null) {
+                document.getElementById(`electrode-${selectedElectrode}`).classList.remove('selected');
+            }
+            
+            selectedElectrode = index;
+            document.getElementById(`electrode-${index}`).classList.add('selected');
+            
+            // Show selected electrode info
+            const selectedInfo = document.getElementById('selected-info');
+            const selectedCoords = document.getElementById('selected-coords');
+            selectedInfo.style.display = 'block';
+            selectedCoords.textContent = `(${coordinates[index].x.toFixed(4)}, ${coordinates[index].y.toFixed(4)})`;
+        }
+
+        function assignLabel(label) {
+            if (selectedElectrode === null) {
+                alert('Please select an electrode first (click on a blue dot).');
+                return;
+            }
+            
+            if (usedLabels.has(label)) {
+                alert('This label has already been used. Each label can only be assigned once.');
+                return;
+            }
+            
+            // Remove previous label if electrode was already labeled
+            if (electrodeLabels[selectedElectrode]) {
+                usedLabels.delete(electrodeLabels[selectedElectrode]);
+                document.getElementById(`label-${electrodeLabels[selectedElectrode]}`).classList.remove('used');
+            }
+            
+            // Assign new label
+            electrodeLabels[selectedElectrode] = label;
+            usedLabels.add(label);
+            
+            // Update UI
+            const electrode = document.getElementById(`electrode-${selectedElectrode}`);
+            electrode.classList.add('labeled');
+            electrode.classList.remove('selected');
+            
+            // Add label text near electrode
+            let labelElement = electrode.querySelector('.electrode-label');
+            if (!labelElement) {
+                labelElement = document.createElement('div');
+                labelElement.className = 'electrode-label';
+                electrode.appendChild(labelElement);
+            }
+            labelElement.textContent = label;
+            
+            // Mark label as used
+            document.getElementById(`label-${label}`).classList.add('used');
+            
+            // Clear selection
+            selectedElectrode = null;
+            document.getElementById('selected-info').style.display = 'none';
+            
+            updateProgress();
+        }
+
+        function clearSelection() {
+            if (selectedElectrode !== null) {
+                document.getElementById(`electrode-${selectedElectrode}`).classList.remove('selected');
+                selectedElectrode = null;
+                document.getElementById('selected-info').style.display = 'none';
+            }
+        }
+
+        function clearAll() {
+            if (confirm('Are you sure you want to clear all labels?')) {
+                electrodeLabels = {};
+                usedLabels.clear();
+                selectedElectrode = null;
+                
+                // Reset UI
+                document.querySelectorAll('.electrode').forEach(electrode => {
+                    electrode.classList.remove('labeled', 'selected');
+                    const label = electrode.querySelector('.electrode-label');
+                    if (label) label.remove();
+                });
+                
+                document.querySelectorAll('.label-item').forEach(item => {
+                    item.classList.remove('used');
+                });
+                
+                document.getElementById('selected-info').style.display = 'none';
+                updateProgress();
+            }
+        }
+
+        function updateProgress() {
+            const labeled = Object.keys(electrodeLabels).length;
+            const total = coordinates.length;
+            const percentage = (labeled / total) * 100;
+            
+            document.getElementById('progress-text').textContent = `${labeled}/${total}`;
+            document.getElementById('progress-fill').style.width = percentage + '%';
+        }
+
+        function filterLabels() {
+            const searchTerm = document.getElementById('search-box').value.toLowerCase();
+            const labelItems = document.querySelectorAll('.label-item');
+            
+            labelItems.forEach(item => {
+                const labelText = item.textContent.toLowerCase();
+                if (labelText.includes(searchTerm)) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+
+        function downloadCSV() {
+            let csvContent = 'x,y,label\n';
+            
+            coordinates.forEach((coord, index) => {
+                const label = electrodeLabels[index] || 'Unlabeled';
+                csvContent += `${coord.x},${coord.y},${label}\n`;
+            });
+            
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'electrode_positions_labeled.csv';
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+
+        // Initialize the application
+        loadData();
+    </script>
+</body>
+</html>
