@@ -126,12 +126,15 @@ Output example:
 
 ### Channel Location System
 
-The package uses the standard 10-5 electrode placement system to accurately map EEG channels. The electrode positions are provided in `eeg_channel_locator.py`, which includes:
+The package uses the standard 10-5 electrode placement system to accurately map EEG channels. The electrode positions are provided in `channel_locator_10_5.py`, which includes:
 
 - Midline electrodes (Fpz, Fz, Cz, Pz, etc.)
 - Left hemisphere electrodes (Fp1, F3, C3, P3, etc.)
 - Right hemisphere electrodes (Fp2, F4, C4, P4, etc.)
 - Additional positions for higher density EEG
+
+The EEG channel locations are based on the standard 10-5 system as described in: 
+[CSD Toolbox Tutorial - Columbia University](https://psychophysiology.cpmc.columbia.edu/software/csdtoolbox/tutorial.html)
 
 ### Data Sources
 

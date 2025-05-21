@@ -3,7 +3,7 @@ import scipy.interpolate
 from scipy import signal
 from matplotlib import patches
 import matplotlib.pyplot as plt
-from eeg_channel_locator import get_channel_positions, TEN_FIVE_POSITIONS
+from channel_locator_10_5 import get_channel_positions, load_electrode_positions
 
 # Commented out for clarity - This function is still in use in the main program to 
 # calculate power spectral density values for topographic plotting
@@ -40,8 +40,11 @@ def plot_topomap(data, ax, fig, channel_labels, draw_cbar=True, title=None):
     '''
     N = 300  # Grid size for interpolation
     
-    # Get positions from 10-5 system using eeg_channel_locator
-    positions, not_found = get_channel_positions(channel_labels, TEN_FIVE_POSITIONS)
+    # Load the electrode positions dictionary
+    electrode_positions = load_electrode_positions()
+    
+    # Get positions for the provided channel labels
+    positions, not_found = get_channel_positions(channel_labels, electrode_positions)
     
     if not positions:
         print("Error: No channel positions found in 10-5 system.")
@@ -331,6 +334,14 @@ if __name__ == "__main__":
         output_file = f"topograph_{os.path.splitext(os.path.basename(edf_file))[0]}.png"
     
     # Display and save figure
-    plt.show()
-    fig.savefig(output_file, bbox_inches='tight', dpi=300)
+    plt.savefig(output_file, bbox_inches='tight', dpi=300)
     print(f"Saved topographic map to {output_file}")
+    
+    # Also create a separate visualization of the electrode positions used
+    from channel_locator_10_5 import plot_selected_electrodes
+    fig_electrodes, _ = plot_selected_electrodes(eeg_ch_names)
+    electrode_file = f"selected_electrodes_{os.path.splitext(os.path.basename(edf_file))[0]}.png"
+    fig_electrodes.savefig(electrode_file, bbox_inches='tight', dpi=300)
+    print(f"Saved electrode position map to {electrode_file}")
+    
+    plt.show()
